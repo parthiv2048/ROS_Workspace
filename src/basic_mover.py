@@ -31,7 +31,7 @@ class BasicMover:
         target_rad = target_yaw * math.pi / 180
 
         while not rospy.is_shutdown():
-            if math.isclose(target_rad, self.cur_yaw):
+            if math.isclose(target_rad, self.cur_yaw, rel_tol=0.01):
                 break
             twist.angular.z = 0.5 * (target_rad - self.cur_yaw)
             self.cmd_vel_pub.publish(twist)
@@ -39,24 +39,35 @@ class BasicMover:
         
     def move_forward(self, target_dist):
         """Moves the robot forward by `target_dist`."""
+        
         while self.cur_dist is None:
             pass
 
         twist = Twist()
         rate = rospy.Rate(10)
         initial_dist = self.cur_dist
-        # final_dist = initial_dist + target_dist
-        max_speed = 0.2
+        max_speed = 0.3
+        total_time = 2 * target_dist / max_speed
+        start_time = rospy.get_time()
+
+        while rospy.get_time() == 0:
+            start_time = rospy.get_time()
 
         while not rospy.is_shutdown():
-            dist_trav = self.cur_dist - initial_dist
-            if dist_trav < (target_dist / 2.0):
-                twist.linear.x = max_speed
-            elif dist_trav > (target_dist / 2.0):
-                twist.linear.x = (target_dist - dist_trav) * max_speed
+            dist_trav = abs(self.cur_dist - initial_dist)
+            time_passed = rospy.get_time() - start_time
+            if time_passed < (total_time / 2.0):
+                twist.linear.x = (time_passed / (total_time / 2.0)) * max_speed
+            elif time_passed < total_time:
+                twist.linear.x = (2 - (time_passed / (total_time / 2.0))) * max_speed
+            
             if dist_trav >= target_dist:
+                twist.linear.x = 0
+                self.cmd_vel_pub.publish(twist)
                 break
-            self.cmd_vel_pub.publish(twist)
+            else:
+                self.cmd_vel_pub.publish(twist)
+            
             rate.sleep()
 
     def out_and_back(self, target_dist):
@@ -67,8 +78,11 @@ class BasicMover:
         3. moves the robot forward by `target_dist`.
         """
         self.move_forward(target_dist)
+        print("forward done")
         self.turn_to_heading(180)
+        print("rotation done")
         self.move_forward(target_dist)
+        print("backward done")
 
     def draw_square(self, side_length):
         """
