@@ -67,10 +67,9 @@ class BasicMover:
                 # In the second half, rotationally decelerate from MAX_ANGULAR_SPEED until you reach 0
                 twist.angular.z = (2 - (time_passed / (total_time / 2.0))) * math.copysign(MAX_ANGULAR_SPEED, angular_diff)
             
-            # Stop when we're close enough to the target_yaw, or we've gone overboard
-            if ((abs(angular_diff) < 0.01)
-                    or (angular_diff > 0 and stop_at_pos)
-                    or (angular_diff < 0 and not(stop_at_pos))):
+            # Stop when we've gone overboard
+            if ((angular_diff >= 0 and stop_at_pos)
+                    or (angular_diff <= 0 and not(stop_at_pos))):
                 twist.angular.z = 0
                 self.cmd_vel_pub.publish(twist)
                 break
@@ -202,7 +201,7 @@ class BasicMover:
 
 if __name__ == '__main__':
     rospy.init_node('basic_mover')
-    BasicMover().out_and_back(1)
-    BasicMover().draw_square(1)
-    BasicMover().move_in_a_circle(1)
+    # BasicMover().out_and_back(1)
+    # BasicMover().draw_square(1)
+    # BasicMover().move_in_a_circle(1)
     # BasicMover().rotate_in_place()
