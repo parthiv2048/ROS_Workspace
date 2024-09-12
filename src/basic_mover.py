@@ -123,7 +123,7 @@ class BasicMover:
         3. moves the robot forward by `target_dist`.
         """
         self.move_forward(target_dist)
-        self.turn_to_heading(math.pi)
+        self.turn_to_heading(self.cur_yaw + math.pi)
         self.move_forward(target_dist)
 
     def draw_square(self, side_length):
