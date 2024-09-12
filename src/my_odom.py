@@ -17,11 +17,11 @@ class MyOdom:
     def odom_cb(self, msg):
         """Callback function for `odom_sub`."""
         cur_pose = msg.pose.pose
-        self.update_dist(cur_pose)
+        self.update_coords(cur_pose)
         self.update_yaw(cur_pose.orientation)
         self.publish_data()
 
-    def update_dist(self, cur_pose):
+    def update_coords(self, cur_pose):
         """
         Helper to `odom_cb`.
         Updates `self.x` to the current x position of robot and
@@ -44,7 +44,7 @@ class MyOdom:
         Publish `self.x` and `self.y` and `self.yaw` on the `my_odom` topic.
         """
         # The `Point` object should be used simply as a data container for
-        # `self.dist` and `self.yaw` so we can publish it on `my_odom`.
+        # `self.x` and `self.y` and `self.yaw` so we can publish it on `my_odom`.
         cur_point = Point()
         cur_point.x = self.x
         cur_point.y = self.y
