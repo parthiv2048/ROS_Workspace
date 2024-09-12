@@ -8,18 +8,12 @@ from tf.transformations import euler_from_quaternion
 
 class MyOdom:
     def __init__(self):
-        data_odom = None
-        while data_odom is None:
-            try:
-                data_odom = rospy.wait_for_message('/odom', Odometry, timeout=1)
-            except:
-                rospy.loginfo("Current odom not ready yet, retrying for setting up init pose")
-        self.old_pose = data_odom.pose.pose
         self.odom_sub = rospy.Subscriber('odom', Odometry, self.odom_cb)
         self.my_odom_pub = rospy.Publisher('my_odom', Point, queue_size=1)
-        self.dist = 0.0
+        self.x = 0.0
+        self.y = 0.0
         self.yaw = 0.0
-                
+
     def odom_cb(self, msg):
         """Callback function for `odom_sub`."""
         cur_pose = msg.pose.pose
@@ -30,10 +24,11 @@ class MyOdom:
     def update_dist(self, cur_pose):
         """
         Helper to `odom_cb`.
-        Updates `self.dist` to the distance between `self.old_pose` and
-        `cur_pose`.
+        Updates `self.x` to the current x position of robot and
+        Updates `self.y` to the current y position of robot.
         """
-        self.dist = cur_pose.position.x - self.old_pose.position.x
+        self.x = cur_pose.position.x
+        self.y = cur_pose.position.y
 
     def update_yaw(self, cur_orientation):
         """
@@ -46,12 +41,13 @@ class MyOdom:
 
     def publish_data(self):
         """
-        Publish `self.dist` and `self.yaw` on the `my_odom` topic.
+        Publish `self.x` and `self.y` and `self.yaw` on the `my_odom` topic.
         """
         # The `Point` object should be used simply as a data container for
         # `self.dist` and `self.yaw` so we can publish it on `my_odom`.
         cur_point = Point()
-        cur_point.x = self.dist
+        cur_point.x = self.x
+        cur_point.y = self.y
         cur_point.z = self.yaw
         self.my_odom_pub.publish(cur_point)
         
