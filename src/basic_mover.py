@@ -4,7 +4,10 @@ import rospy
 from geometry_msgs.msg import Point, Pose, Twist
 from tf.transformations import euler_from_quaternion
 
+# Video Link - https://drive.google.com/file/d/19ZA3Q_ObsgSSiAriUOe4U9kmO3MLbKID/view?usp=sharing
+
 MAX_ANGULAR_SPEED = math.pi / 4
+MIN_ANGULAR_SPEED = 0.0005
 MAX_SPEED = 0.3
 
 # BasicMover
@@ -23,6 +26,28 @@ class BasicMover:
         self.y = msg.y
         # msg.z is the angular z i.e. yaw of the robot
         self.cur_yaw = msg.z
+    
+    # Find out the shortest angular distance between self.cur_yaw and target_yaw
+    def calculate_shortest_angle_diff(self, target_yaw, current_yaw):
+        # Convert current_yaw to make sure it only has positive values
+        current_yaw = current_yaw if current_yaw > 0 else (current_yaw + 2*math.pi)
+        # Shorten target_yaw to make sure it doesn't exceed 2pi
+        target_yaw = target_yaw % (2*math.pi)
+        # Find the angular difference, and then shift it by 2pi and -2pi
+        # The shortest distance must exist between these 3 values
+        direct_diff = target_yaw - current_yaw
+        angle_diffs = [direct_diff, direct_diff + 2*math.pi, direct_diff - 2*math.pi]
+        # The following finds the shortest angular distance between current_yaw and target_yaw
+        # A loop is used because while the comparison is done between absolute values, 
+        # we still need the sign of the difference to know which direction to rotate
+        shortest_diff_abs = abs(direct_diff)
+        shortest_diff = direct_diff
+        for angle_diff in angle_diffs:
+            if abs(angle_diff) < shortest_diff_abs:
+                shortest_diff_abs = abs(angle_diff)
+                shortest_diff = angle_diff
+        
+        return shortest_diff
 
     def turn_to_heading(self, target_yaw):
         """
@@ -31,45 +56,45 @@ class BasicMover:
         while self.cur_yaw is None:
             pass
         
+        shortest_diff = self.calculate_shortest_angle_diff(target_yaw, self.cur_yaw)
+
+        # Find the total time needed to travel using angular distance (shortest_diff) and
+        # assume we rotationally accelerate to MAX_ANGULAR_SPEED in the first half and
+        # then decelerate from MAX_ANGULAR_SPEED to 0 in the second half
+        total_time = 2 * abs(shortest_diff) / MAX_ANGULAR_SPEED
+        dir = 1 if shortest_diff > 0 else -1
+        
         twist = Twist()
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(20)
 
         start_time = rospy.get_time()
-        first_iter = True
+        prev_shortest_diff = shortest_diff
 
         while not rospy.is_shutdown():
             time_passed = rospy.get_time() - start_time
+            shortest_diff = self.calculate_shortest_angle_diff(target_yaw, self.cur_yaw)
 
-            # Limit the range of the angular difference to 2pi radians
-            angular_diff = (target_yaw - self.cur_yaw) % (2 * math.pi)
-            # If the angular different is greater than pi radians, find the shorter path by subtracting 2pi radians
-            if angular_diff > math.pi:
-                angular_diff -= (2 * math.pi)
-            
-            # Some values we need to calculate on the first iteration of this loop
-            if first_iter:
-                # Find the total_time needed to make the rotation using total angular distance i.e. abs(angular_vel), and 
-                # assume we accelerate to MAX_ANGULAR_SPEED in the first half and then decelerate to 0 in the second half
-                total_time = 2 * abs(angular_diff) / MAX_ANGULAR_SPEED
-                # To find out if rotations has gone overboard, we need to know whether we are rotating in the plus or minus direction
-                if angular_diff > 0:
-                    # stop_at_pos is False means the robot should stop rotating when the angular_vel is negative
-                    stop_at_pos = False
-                else:
-                    stop_at_pos = True
-                first_iter = False
+            # This is to counter a very specific bug that occurs with the simulation
+            # Sometimes, when the yaw is hovering around pi, the self.cur_yaw will switch from pi to -pi at random
+            # To stop this, we detect if it happens and when it does, the shortest_diff stays the same
+            if abs(shortest_diff - prev_shortest_diff) > math.pi:
+                shortest_diff = prev_shortest_diff
+            prev_shortest_diff = shortest_diff
             
             if time_passed < (total_time / 2.0):
                 # In the first half, rotationally accelerate until you reach MAX_ANGULAR_SPEED
                 # The copysign is used to make sure the robot is rotating in the correct direction
-                twist.angular.z = (time_passed / (total_time / 2.0)) * math.copysign(MAX_ANGULAR_SPEED, angular_diff)
+                twist.angular.z = (time_passed / (total_time / 2.0)) * MAX_ANGULAR_SPEED * dir
             elif time_passed < total_time:
                 # In the second half, rotationally decelerate from MAX_ANGULAR_SPEED until you reach 0
-                twist.angular.z = (2 - (time_passed / (total_time / 2.0))) * math.copysign(MAX_ANGULAR_SPEED, angular_diff)
+                twist.angular.z = (2 - (time_passed / (total_time / 2.0))) * MAX_ANGULAR_SPEED * dir
             
-            # Stop when we've gone overboard
-            if ((angular_diff >= 0 and stop_at_pos)
-                    or (angular_diff <= 0 and not(stop_at_pos))):
+            # Sometimes the robot rotates so slowly that some bugs start to happen,
+            # so we limit the lowest angular speed to MIN_ANGULAR_SPEED
+            twist.angular.z = dir * max(abs(twist.angular.z), MIN_ANGULAR_SPEED)
+            
+            # Stop immediately if we've gone overboard or we're close enough
+            if shortest_diff * dir < 0 or abs(shortest_diff) < 0.001:
                 twist.angular.z = 0
                 self.cmd_vel_pub.publish(twist)
                 break
@@ -201,7 +226,7 @@ class BasicMover:
 
 if __name__ == '__main__':
     rospy.init_node('basic_mover')
-    # BasicMover().out_and_back(1)
+    BasicMover().out_and_back(1)
     # BasicMover().draw_square(1)
     # BasicMover().move_in_a_circle(1)
     # BasicMover().rotate_in_place()
