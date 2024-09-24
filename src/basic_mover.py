@@ -83,7 +83,7 @@ class BasicMover:
             
             if time_passed < (total_time / 2.0):
                 # In the first half, rotationally accelerate until you reach MAX_ANGULAR_SPEED
-                # The copysign is used to make sure the robot is rotating in the correct direction
+                # The dir variable is used to make sure the robot is rotating in the correct direction
                 twist.angular.z = (time_passed / (total_time / 2.0)) * MAX_ANGULAR_SPEED * dir
             elif time_passed < total_time:
                 # In the second half, rotationally decelerate from MAX_ANGULAR_SPEED until you reach 0
@@ -93,6 +93,7 @@ class BasicMover:
             # so we limit the lowest angular speed to MIN_ANGULAR_SPEED
             twist.angular.z = dir * max(abs(twist.angular.z), MIN_ANGULAR_SPEED)
             
+            print(shortest_diff, twist.angular.z)
             # Stop immediately if we've gone overboard or we're close enough
             if shortest_diff * dir < 0 or abs(shortest_diff) < 0.001:
                 twist.angular.z = 0
@@ -226,7 +227,7 @@ class BasicMover:
 
 if __name__ == '__main__':
     rospy.init_node('basic_mover')
-    BasicMover().out_and_back(1)
-    # BasicMover().draw_square(1)
+    # BasicMover().out_and_back(1)
+    BasicMover().draw_square(1)
     # BasicMover().move_in_a_circle(1)
     # BasicMover().rotate_in_place()
