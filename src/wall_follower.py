@@ -4,6 +4,8 @@ import rospy
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
+# Video Link - https://drive.google.com/file/d/1qoaI_UokCy3kXU0DYBxWnZJzz7hIReTK/view?usp=sharing
+
 # Max linear speed the robot is allowed to reach
 MAX_SPEED = 0.3
 # Distance to be maintained from wall
